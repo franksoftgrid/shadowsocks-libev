@@ -78,6 +78,8 @@ int get_head_size(char *plaindata, int size, int def_size);
 
 static uint64_t shift128plus_s[2];
 
+void init_shift128plus(void);
+
 uint64_t xorshift128plus(void);
 
 #endif // _OBFS_H

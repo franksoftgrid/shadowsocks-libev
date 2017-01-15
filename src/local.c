@@ -63,7 +63,7 @@
 #include "netutils.h"
 #include "utils.h"
 #include "socks5.h"
-#include "acl.h"
+//#include "acl.h"
 #include "http.h"
 #include "tls.h"
 #include "local.h"
@@ -613,51 +613,51 @@ server_recv_cb(EV_P_ ev_io *w, int revents)
             }
 
             if (acl) {
-                int host_match = acl_match_host(host);
-                int ip_match   = acl_match_host(ip);
-
-                int bypass = get_acl_mode() == WHITE_LIST;
-
-                if (get_acl_mode() == BLACK_LIST) {
-                    if (ip_match > 0)
-                        bypass = 1;               // bypass IPs in black list
-
-                    if (host_match > 0)
-                        bypass = 1;                 // bypass hostnames in black list
-                    else if (host_match < 0)
-                        bypass = 0;                      // proxy hostnames in white list
-                } else if (get_acl_mode() == WHITE_LIST) {
-                    if (ip_match < 0)
-                        bypass = 0;               // proxy IPs in white list
-
-                    if (host_match < 0)
-                        bypass = 0;                 // proxy hostnames in white list
-                    else if (host_match > 0)
-                        bypass = 1;                      // bypass hostnames in black list
-                }
-
-                if (bypass) {
-                    if (verbose) {
-                        if (sni_detected || atyp == 3)
-                        LOGI("bypass %s:%s", host, port);
-                        else if (atyp == 1)
-                            LOGI("bypass %s:%s", ip, port);
-                        else if (atyp == 4)
-                            LOGI("bypass [%s]:%s", ip, port);
-                    }
-                    struct sockaddr_storage storage;
-                    int err;
-                    memset(&storage, 0, sizeof(struct sockaddr_storage));
-                    if (atyp == 1 || atyp == 4) {
-                        err = get_sockaddr(ip, port, &storage, 0);
-                    } else {
-                        err = get_sockaddr(host, port, &storage, 1);
-                    }
-                    if (err != -1) {
-                        remote         = create_remote(server->listener, (struct sockaddr *)&storage);
-                        remote->direct = 1;
-                    }
-                }
+//                int host_match = acl_match_host(host);
+//                int ip_match   = acl_match_host(ip);
+//
+//                int bypass = get_acl_mode() == WHITE_LIST;
+//
+//                if (get_acl_mode() == BLACK_LIST) {
+//                    if (ip_match > 0)
+//                        bypass = 1;               // bypass IPs in black list
+//
+//                    if (host_match > 0)
+//                        bypass = 1;                 // bypass hostnames in black list
+//                    else if (host_match < 0)
+//                        bypass = 0;                      // proxy hostnames in white list
+//                } else if (get_acl_mode() == WHITE_LIST) {
+//                    if (ip_match < 0)
+//                        bypass = 0;               // proxy IPs in white list
+//
+//                    if (host_match < 0)
+//                        bypass = 0;                 // proxy hostnames in white list
+//                    else if (host_match > 0)
+//                        bypass = 1;                      // bypass hostnames in black list
+//                }
+//
+//                if (bypass) {
+//                    if (verbose) {
+//                        if (sni_detected || atyp == 3)
+//                        LOGI("bypass %s:%s", host, port);
+//                        else if (atyp == 1)
+//                            LOGI("bypass %s:%s", ip, port);
+//                        else if (atyp == 4)
+//                            LOGI("bypass [%s]:%s", ip, port);
+//                    }
+//                    struct sockaddr_storage storage;
+//                    int err;
+//                    memset(&storage, 0, sizeof(struct sockaddr_storage));
+//                    if (atyp == 1 || atyp == 4) {
+//                        err = get_sockaddr(ip, port, &storage, 0);
+//                    } else {
+//                        err = get_sockaddr(host, port, &storage, 1);
+//                    }
+//                    if (err != -1) {
+//                        remote         = create_remote(server->listener, (struct sockaddr *)&storage);
+//                        remote->direct = 1;
+//                    }
+//                }
             }
 
             // Not match ACL
@@ -1683,7 +1683,7 @@ int start_ss_local_server(profile_t profile, shadowsocks_cb cb, void *data)
     USE_LOGFILE(log);
 
     if (profile.acl != NULL) {
-        acl = !init_acl(profile.acl);
+//        acl = !init_acl(profile.acl);
     }
 
     if (local_addr == NULL) {
@@ -1714,10 +1714,26 @@ int start_ss_local_server(profile_t profile, shadowsocks_cb cb, void *data)
     LOGI("initializing ciphers... %s", method);
     int m = enc_init(password, method);
 
+    // Setup socket
+    int listenfd;
+    listenfd = create_and_bind(local_addr, local_port_str);
+    if (listenfd == -1) {
+        ERROR("bind()");
+        cb(0, data);
+        return -1;
+    }
+    if (listen(listenfd, SOMAXCONN) == -1) {
+        ERROR("listen()");
+        cb(0, data);
+        return -1;
+    }
+    setnonblocking(listenfd);
+
+    cb(listenfd, data);
+
     struct sockaddr_storage *storage = ss_malloc(sizeof(struct sockaddr_storage));
     memset(storage, 0, sizeof(struct sockaddr_storage));
     if (get_sockaddr(remote_host, remote_port_str, storage, 1) == -1) {
-        cb(0, data);
         return -1;
     }
 
@@ -1747,19 +1763,6 @@ int start_ss_local_server(profile_t profile, shadowsocks_cb cb, void *data)
     // SSR end
 
     if (mode != UDP_ONLY) {
-        // Setup socket
-        int listenfd;
-        listenfd = create_and_bind(local_addr, local_port_str);
-        if (listenfd == -1) {
-            ERROR("bind()");
-            return -1;
-        }
-        if (listen(listenfd, SOMAXCONN) == -1) {
-            ERROR("listen()");
-            return -1;
-        }
-        setnonblocking(listenfd);
-
         listen_ctx.fd = listenfd;
 
         ev_io_init(&listen_ctx.io, accept_cb, listenfd, EV_READ);
@@ -1781,8 +1784,6 @@ int start_ss_local_server(profile_t profile, shadowsocks_cb cb, void *data)
 
     // Init connections
     cork_dllist_init(&connections);
-
-    cb(listen_ctx.fd, data);
 
     // Enter the loop
     ev_run(loop, 0);
