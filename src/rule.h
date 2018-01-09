@@ -33,11 +33,12 @@
 
 #include <libcork/ds.h>
 
-#ifdef HAVE_PCRE_H
-#include <pcre.h>
-#elif HAVE_PCRE_PCRE_H
-#include <pcre/pcre.h>
-#endif
+//#ifdef HAVE_PCRE_H
+//#include <pcre.h>
+//#elif HAVE_PCRE_PCRE_H
+//#include <pcre/pcre.h>
+//#endif
+#include "pcre.h"
 
 typedef struct rule {
     char *pattern;
